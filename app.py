@@ -6,7 +6,6 @@ st.set_page_config(page_title="Analisis Chatbot KAWAN", layout="wide")
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 import requests
 from datetime import datetime
@@ -127,15 +126,25 @@ fig_topmsg = px.bar(top_msg, x="Frekuensi", y="Pesan", orientation="h", text="Fr
 st.plotly_chart(fig_topmsg, use_container_width=True)
 
 # =====================================
-# 🔹 Wordcloud Pesan
+# 🔹 Word Frequency Analysis
 # =====================================
-st.subheader("☁️ Wordcloud Pesan")
+st.subheader("☁️ Analisis Frekuensi Kata")
+
+# Process text
 all_text = " ".join(df['message'].astype(str))
-wc = WordCloud(width=800, height=400, background_color="white", colormap="viridis").generate(all_text)
-fig_wc, ax = plt.subplots(figsize=(10,5))
-ax.imshow(wc, interpolation="bilinear")
-ax.axis("off")
-st.pyplot(fig_wc)
+words = all_text.split()
+word_freq = pd.Series(words).value_counts().head(20)
+
+# Create bar chart
+fig_words = px.bar(
+    x=word_freq.values,
+    y=word_freq.index,
+    orientation='h',
+    title='20 Kata Paling Sering Muncul',
+    labels={'x': 'Frekuensi', 'y': 'Kata'}
+)
+fig_words.update_layout(showlegend=False)
+st.plotly_chart(fig_words, use_container_width=True)
 
 # =====================================
 # 🔹 Analisis Intent
