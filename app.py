@@ -142,36 +142,25 @@ all_text = " ".join(df['message'].astype(str))
 words = [word.lower() for word in all_text.split() if word.lower() not in stop_words]
 word_freq = pd.Series(words).value_counts().head(20)
 
-# Create scrollable container with fixed height
-scroll_container = st.container()
-with scroll_container:
-    # Create bar chart with enhanced layout
-    fig_words = px.bar(
-        x=word_freq.values,
-        y=word_freq.index,
-        orientation='h',
-        title='20 Kata Paling Sering Muncul (Excluding Stop Words)',
-        labels={'x': 'Frekuensi', 'y': 'Kata'}
-    )
-    
-    # Update layout for better aesthetics and scrolling
-    fig_words.update_layout(
-        showlegend=False,
-        height=600,  # Fixed height
-        margin=dict(l=20, r=20, t=40, b=20),
-        xaxis=dict(showgrid=True, gridwidth=1, gridcolor='LightGray'),
-        yaxis=dict(showgrid=True, gridwidth=1, gridcolor='LightGray'),
-        plot_bgcolor='white',
-        scrollZoom=True,  # Enable scroll zoom
-        dragmode='pan'    # Enable panning
-    )
-    
-    # Display chart in streamlit with both scrollbars
-    st.plotly_chart(fig_words, use_container_width=True, config={
-        'scrollZoom': True,
-        'displayModeBar': True,
-        'modeBarButtonsToAdd': ['pan2d','zoom2d','resetScale2d']
-    })
+# Create bar chart
+fig_words = px.bar(
+    x=word_freq.values,
+    y=word_freq.index,
+    orientation='h',
+    title='20 Kata Paling Sering Muncul (Excluding Stop Words)',
+    labels={'x': 'Frekuensi', 'y': 'Kata'},
+    height=600
+)
+
+# Simple layout update
+fig_words.update_layout(
+    showlegend=False,
+    margin=dict(l=20, r=20, t=40, b=20),
+    plot_bgcolor='white'
+)
+
+# Display chart
+st.plotly_chart(fig_words, use_container_width=True)
 
 # =====================================
 # 🔹 Analisis Intent
