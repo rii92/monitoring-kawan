@@ -99,34 +99,67 @@ def calculate_avg_response_time(df):
     df_sorted = df.sort_values('datetime')
     
     response_times = []
-    last_receive_time = None
+    user_last_receive = {}  # Track last receive time per user
+    MAX_RESPONSE_TIME = 300  # Maximum 5 minutes response time threshold
     
     for _, row in df_sorted.iterrows():
+        current_no = row['no']
+        
         if row['status'] == 'receive':
-            last_receive_time = row['datetime']
-        elif row['status'] == 'send' and last_receive_time is not None:
+            # Store the receive time for this user
+            user_last_receive[current_no] = row['datetime']
+        
+        elif row['status'] == 'send' and current_no in user_last_receive:
             # Calculate time difference in seconds
+            last_receive_time = user_last_receive[current_no]
             response_time = (row['datetime'] - last_receive_time).total_seconds()
-            if response_time > 0 and response_time < 3600:  # Filter out responses longer than 1 hour
+            
+            # Only count if response time is reasonable (> 0 and < MAX_RESPONSE_TIME)
+            if 0 < response_time < MAX_RESPONSE_TIME:
                 response_times.append(response_time)
-            last_receive_time = None
+            
+            # Clear the last receive time for this user
+            del user_last_receive[current_no]
     
     if response_times:
         avg_response_time = sum(response_times) / len(response_times)
         # Convert to minutes and seconds
         minutes = int(avg_response_time // 60)
         seconds = int(avg_response_time % 60)
-        return f"{minutes} menit {seconds} detik"
-    return "N/A"
+        
+        # Add more detailed statistics
+        min_time = min(response_times)
+        max_time = max(response_times)
+        total_responses = len(response_times)
+        
+        stats = {
+            'avg': f"{minutes} menit {seconds} detik",
+            'min': f"{int(min_time)} detik",
+            'max': f"{int(max_time)} detik",
+            'total_samples': total_responses
+        }
+        return stats
+    
+    return {
+        'avg': "N/A",
+        'min': "N/A",
+        'max': "N/A",
+        'total_samples': 0
+    }
 
-avg_response_time = calculate_avg_response_time(df)
+response_stats = calculate_avg_response_time(df)
 
-col1, col2, col3, col4, col5 = st.columns(5)
+col1, col2, col3 = st.columns(3)
 col1.metric("Total Pesan", len(df))
-col2.metric("Pesan Diterima", len(df[df['status'] == "receive"]))
-col3.metric("Pesan Dikirim", len(df[df['status'] == "send"]))
-col4.metric("Jumlah User Unik", df['no'].nunique())
-col5.metric("Rata-rata Waktu Respon", avg_response_time)
+col1.metric("Pesan Diterima", len(df[df['status'] == "receive"]))
+col1.metric("Pesan Dikirim", len(df[df['status'] == "send"]))
+
+col2.metric("Jumlah User Unik", df['no'].nunique())
+col2.metric("Jumlah Sampel Response", response_stats['total_samples'])
+
+col3.metric("Rata-rata Waktu Respon", response_stats['avg'])
+col3.metric("Response Tercepat", response_stats['min'])
+col3.metric("Response Terlama", response_stats['max'])
 
 # =====================================
 # 🔹 Distribusi Status Pesan
