@@ -135,23 +135,43 @@ stop_words = set(['yang', 'di', 'ke', 'dari', 'pada', 'dalam', 'untuk', 'dengan'
                  'ini', 'itu', 'juga', 'sudah', 'saya', 'anda', 'dia', 'mereka', 'kita', 'akan',
                  'bisa', 'ada', 'tidak', 'saat', 'oleh', 'setelah', 'para', 'seperti', 'serta',
                  'bagi', 'tentang', 'sampai', 'hingga', 'sebuah', 'telah', 'sih', 'ya', 'hal',
-                 'ok', 'oke', 'ketika', 'kepada'])
+                 'ok', 'oke', 'ketika', 'kepada', 'kami', 'kamu', 'aku', 'kau', 'kalian', 'saya'])
 
 # Process text
 all_text = " ".join(df['message'].astype(str))
 words = [word.lower() for word in all_text.split() if word.lower() not in stop_words]
 word_freq = pd.Series(words).value_counts().head(20)
 
-# Create bar chart
-fig_words = px.bar(
-    x=word_freq.values,
-    y=word_freq.index,
-    orientation='h',
-    title='20 Kata Paling Sering Muncul (Excluding Stop Words)',
-    labels={'x': 'Frekuensi', 'y': 'Kata'}
-)
-fig_words.update_layout(showlegend=False)
-st.plotly_chart(fig_words, use_container_width=True)
+# Create scrollable container with fixed height
+scroll_container = st.container()
+with scroll_container:
+    # Create bar chart with enhanced layout
+    fig_words = px.bar(
+        x=word_freq.values,
+        y=word_freq.index,
+        orientation='h',
+        title='20 Kata Paling Sering Muncul (Excluding Stop Words)',
+        labels={'x': 'Frekuensi', 'y': 'Kata'}
+    )
+    
+    # Update layout for better aesthetics and scrolling
+    fig_words.update_layout(
+        showlegend=False,
+        height=600,  # Fixed height
+        margin=dict(l=20, r=20, t=40, b=20),
+        xaxis=dict(showgrid=True, gridwidth=1, gridcolor='LightGray'),
+        yaxis=dict(showgrid=True, gridwidth=1, gridcolor='LightGray'),
+        plot_bgcolor='white',
+        scrollZoom=True,  # Enable scroll zoom
+        dragmode='pan'    # Enable panning
+    )
+    
+    # Display chart in streamlit with both scrollbars
+    st.plotly_chart(fig_words, use_container_width=True, config={
+        'scrollZoom': True,
+        'displayModeBar': True,
+        'modeBarButtonsToAdd': ['pan2d','zoom2d','resetScale2d']
+    })
 
 # =====================================
 # 🔹 Analisis Intent
