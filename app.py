@@ -68,11 +68,11 @@ st.markdown("Dashboard interaktif untuk menganalisis percakapan chatbot KAWAN be
 st.sidebar.header("⚙️ Filter Data")
 
 # Filter by data source
-sources = df['source'].unique()
-selected_source = st.sidebar.selectbox("Pilih Sumber Data:", options=["Semua"] + list(sources))
+# sources = df['source'].unique()
+# selected_source = st.sidebar.selectbox("Pilih Sumber Data:", options=["Semua"] + list(sources))
 
-if selected_source != "Semua":
-    df = df[df['source'] == selected_source]
+# if selected_source != "Semua":
+#     df = df[df['source'] == selected_source]
 
 # Filter by user
 users = df['name'].unique()
