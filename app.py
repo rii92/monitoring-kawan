@@ -75,11 +75,11 @@ st.sidebar.header("⚙️ Filter Data")
 #     df = df[df['source'] == selected_source]
 
 # Filter by user
-users = df['name'].unique()
+users = df['no'].unique()
 selected_user = st.sidebar.selectbox("Pilih User:", options=["Semua"] + list(users))
 
 if selected_user != "Semua":
-    df = df[df['name'] == selected_user]
+    df = df[df['no'] == selected_user]
 
 date_range = st.sidebar.date_input(
     "Pilih Rentang Tanggal:",
@@ -96,7 +96,7 @@ col1, col2, col3, col4 = st.columns(4)
 col1.metric("Total Pesan", len(df))
 col2.metric("Pesan Diterima", len(df[df['status'] == "receive"]))
 col3.metric("Pesan Dikirim", len(df[df['status'] == "send"]))
-col4.metric("Jumlah User Unik", df['name'].nunique())
+col4.metric("Jumlah User Unik", df['no'].nunique())
 
 # =====================================
 # 🔹 Distribusi Status Pesan
