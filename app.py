@@ -96,30 +96,48 @@ st.subheader("📊 Statistik Ringkas")
 # Calculate average response time
 def calculate_avg_response_time(df):
     # Sort by datetime to ensure correct order
-    df_sorted = df.sort_values('datetime')
+    df_sorted = df.sort_values('datetime').copy()
     
     response_times = []
-    user_last_receive = {}  # Track last receive time per user
-    MAX_RESPONSE_TIME = 300  # Maximum 5 minutes response time threshold
+    MAX_RESPONSE_TIME = 180  # Maximum 3 minutes response time threshold
     
-    for _, row in df_sorted.iterrows():
-        current_no = row['no']
+    # Group messages by conversation
+    current_conversation = None
+    last_receive_time = None
+    bot_no = "https://script.google.com/macros/s/AKfycbxryhvmXetPamDTnX0PwgdQmo0t7dluEPIPHajXMRb4j0Res05WrPbM-lEMfBG3_39oMQ/exec"
+    
+    for idx, row in df_sorted.iterrows():
+        current_time = row['datetime']
         
+        # If it's a user message (receive)
         if row['status'] == 'receive':
-            # Store the receive time for this user
-            user_last_receive[current_no] = row['datetime']
-        
-        elif row['status'] == 'send' and current_no in user_last_receive:
-            # Calculate time difference in seconds
-            last_receive_time = user_last_receive[current_no]
-            response_time = (row['datetime'] - last_receive_time).total_seconds()
+            # Start new conversation
+            last_receive_time = current_time
+            current_conversation = row['no']
             
-            # Only count if response time is reasonable (> 0 and < MAX_RESPONSE_TIME)
+        # If it's a bot response (send) and we have a pending user message
+        elif (row['status'] == 'send' and 
+              last_receive_time is not None and 
+              current_conversation is not None and 
+              row['no'] == bot_no):
+            
+            # Calculate response time
+            response_time = (current_time - last_receive_time).total_seconds()
+            
+            # Only count if response time is reasonable
             if 0 < response_time < MAX_RESPONSE_TIME:
                 response_times.append(response_time)
             
-            # Clear the last receive time for this user
-            del user_last_receive[current_no]
+            # Reset conversation tracking
+            last_receive_time = None
+            current_conversation = None
+            
+        # If too much time has passed, reset conversation
+        elif last_receive_time is not None:
+            time_passed = (current_time - last_receive_time).total_seconds()
+            if time_passed > MAX_RESPONSE_TIME:
+                last_receive_time = None
+                current_conversation = None
     
     if response_times:
         avg_response_time = sum(response_times) / len(response_times)
@@ -127,21 +145,23 @@ def calculate_avg_response_time(df):
         minutes = int(avg_response_time // 60)
         seconds = int(avg_response_time % 60)
         
-        # Add more detailed statistics
-        min_time = min(response_times)
-        max_time = max(response_times)
-        total_responses = len(response_times)
+        # Calculate median for more accurate typical response time
+        median_time = sorted(response_times)[len(response_times)//2]
+        median_minutes = int(median_time // 60)
+        median_seconds = int(median_time % 60)
         
         stats = {
             'avg': f"{minutes} menit {seconds} detik",
-            'min': f"{int(min_time)} detik",
-            'max': f"{int(max_time)} detik",
-            'total_samples': total_responses
+            'median': f"{median_minutes} menit {median_seconds} detik",
+            'min': f"{int(min(response_times))} detik",
+            'max': f"{int(max(response_times))} detik",
+            'total_samples': len(response_times)
         }
         return stats
     
     return {
         'avg': "N/A",
+        'median': "N/A",
         'min': "N/A",
         'max': "N/A",
         'total_samples': 0
@@ -149,17 +169,24 @@ def calculate_avg_response_time(df):
 
 response_stats = calculate_avg_response_time(df)
 
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
+
+# Basic metrics
 col1.metric("Total Pesan", len(df))
 col1.metric("Pesan Diterima", len(df[df['status'] == "receive"]))
 col1.metric("Pesan Dikirim", len(df[df['status'] == "send"]))
 
+# User metrics
 col2.metric("Jumlah User Unik", df['no'].nunique())
 col2.metric("Jumlah Sampel Response", response_stats['total_samples'])
 
+# Response time averages
 col3.metric("Rata-rata Waktu Respon", response_stats['avg'])
-col3.metric("Response Tercepat", response_stats['min'])
-col3.metric("Response Terlama", response_stats['max'])
+col3.metric("Median Waktu Respon", response_stats['median'])
+
+# Response time extremes
+col4.metric("Response Tercepat", response_stats['min'])
+col4.metric("Response Terlama", response_stats['max'])
 
 # =====================================
 # 🔹 Distribusi Status Pesan
