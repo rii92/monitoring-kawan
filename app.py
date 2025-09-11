@@ -130,9 +130,16 @@ st.plotly_chart(fig_topmsg, use_container_width=True)
 # =====================================
 st.subheader("☁️ Analisis Frekuensi Kata")
 
+# Define stop words (kata penghubung) in Indonesian
+stop_words = set(['yang', 'di', 'ke', 'dari', 'pada', 'dalam', 'untuk', 'dengan', 'dan', 'atau', 
+                 'ini', 'itu', 'juga', 'sudah', 'saya', 'anda', 'dia', 'mereka', 'kita', 'akan',
+                 'bisa', 'ada', 'tidak', 'saat', 'oleh', 'setelah', 'para', 'seperti', 'serta',
+                 'bagi', 'tentang', 'sampai', 'hingga', 'sebuah', 'telah', 'sih', 'ya', 'hal',
+                 'ok', 'oke', 'ketika', 'kepada'])
+
 # Process text
 all_text = " ".join(df['message'].astype(str))
-words = all_text.split()
+words = [word.lower() for word in all_text.split() if word.lower() not in stop_words]
 word_freq = pd.Series(words).value_counts().head(20)
 
 # Create bar chart
@@ -140,7 +147,7 @@ fig_words = px.bar(
     x=word_freq.values,
     y=word_freq.index,
     orientation='h',
-    title='20 Kata Paling Sering Muncul',
+    title='20 Kata Paling Sering Muncul (Excluding Stop Words)',
     labels={'x': 'Frekuensi', 'y': 'Kata'}
 )
 fig_words.update_layout(showlegend=False)
