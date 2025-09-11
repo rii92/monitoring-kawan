@@ -8,7 +8,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # =====================================
 # 🔹 Load Data
@@ -93,66 +93,83 @@ df = df[(df['datetime'].dt.date >= date_range[0]) & (df['datetime'].dt.date <= d
 # =====================================
 st.subheader("📊 Statistik Ringkas")
 
-# Calculate average response time
+# Calculate working hours response time
+def calculate_working_hours(start, end):
+    """Menghitung waktu respon dalam jam kerja."""
+    work_start_time = datetime.strptime('08:00', '%H:%M').time()
+    work_end_time = datetime.strptime('20:00', '%H:%M').time()
+
+    if start.time() > work_end_time:
+        start = datetime.combine(start.date() + timedelta(days=1), work_start_time)
+    if end.time() < work_start_time:
+        end = datetime.combine(end.date() - timedelta(days=1), work_end_time)
+
+    if start.time() < work_start_time:
+        start = datetime.combine(start.date(), work_start_time)
+    if end.time() > work_end_time:
+        end = datetime.combine(end.date(), work_end_time)
+
+    total_seconds = 0
+    while start.date() <= end.date():
+        work_start = datetime.combine(start.date(), work_start_time)
+        work_end = datetime.combine(start.date(), work_end_time)
+        if start > work_end:
+            start = work_start + timedelta(days=1)
+            continue
+        if end < work_start:
+            break
+        total_seconds += (min(end, work_end) - max(start, work_start)).total_seconds()
+        start = work_start + timedelta(days=1)
+    return total_seconds
+
 def calculate_avg_response_time(df):
-    # Sort by datetime to ensure correct order
     df_sorted = df.sort_values('datetime').copy()
-    
     response_times = []
-    MAX_RESPONSE_TIME = 180  # Maximum 3 minutes response time threshold
+    response_times_raw = []  # For raw time (including non-working hours)
     
-    # Group messages by conversation
-    current_conversation = None
-    last_receive_time = None
     bot_no = "https://script.google.com/macros/s/AKfycbxryhvmXetPamDTnX0PwgdQmo0t7dluEPIPHajXMRb4j0Res05WrPbM-lEMfBG3_39oMQ/exec"
     
-    for idx, row in df_sorted.iterrows():
-        current_time = row['datetime']
+    for i in range(len(df_sorted) - 1):
+        current_row = df_sorted.iloc[i]
+        next_row = df_sorted.iloc[i + 1]
         
-        # If it's a user message (receive)
-        if row['status'] == 'receive':
-            # Start new conversation
-            last_receive_time = current_time
-            current_conversation = row['no']
+        # Check if current message is 'receive' and next is 'send' from bot
+        if (current_row['status'] == 'receive' and 
+            next_row['status'] == 'send' and 
+            next_row['no'] == bot_no):
             
-        # If it's a bot response (send) and we have a pending user message
-        elif (row['status'] == 'send' and 
-              last_receive_time is not None and 
-              current_conversation is not None and 
-              row['no'] == bot_no):
+            # Calculate working hours response time
+            work_time = calculate_working_hours(
+                current_row['datetime'],
+                next_row['datetime']
+            )
             
-            # Calculate response time
-            response_time = (current_time - last_receive_time).total_seconds()
+            # Calculate raw response time
+            raw_time = (next_row['datetime'] - current_row['datetime']).total_seconds()
             
-            # Only count if response time is reasonable
-            if 0 < response_time < MAX_RESPONSE_TIME:
-                response_times.append(response_time)
-            
-            # Reset conversation tracking
-            last_receive_time = None
-            current_conversation = None
-            
-        # If too much time has passed, reset conversation
-        elif last_receive_time is not None:
-            time_passed = (current_time - last_receive_time).total_seconds()
-            if time_passed > MAX_RESPONSE_TIME:
-                last_receive_time = None
-                current_conversation = None
+            if 0 < work_time < 600:  # Max 10 minutes threshold
+                response_times.append(work_time)
+                response_times_raw.append(raw_time)
     
     if response_times:
-        avg_response_time = sum(response_times) / len(response_times)
-        # Convert to minutes and seconds
-        minutes = int(avg_response_time // 60)
-        seconds = int(avg_response_time % 60)
-        
-        # Calculate median for more accurate typical response time
+        # Calculate statistics for working hours
+        avg_time = sum(response_times) / len(response_times)
         median_time = sorted(response_times)[len(response_times)//2]
-        median_minutes = int(median_time // 60)
-        median_seconds = int(median_time % 60)
+        
+        # Calculate statistics for raw time
+        avg_time_raw = sum(response_times_raw) / len(response_times_raw)
+        median_time_raw = sorted(response_times_raw)[len(response_times_raw)//2]
+        
+        def format_time(seconds):
+            minutes = int(seconds // 60)
+            secs = int(seconds % 60)
+            return f"{minutes} menit {secs} detik"
         
         stats = {
-            'avg': f"{minutes} menit {seconds} detik",
-            'median': f"{median_minutes} menit {median_seconds} detik",
+            'avg': format_time(avg_time),
+            'avg_raw': format_time(avg_time_raw),
+            'median': format_time(median_time),
+            'median_raw': format_time(median_time_raw),
             'min': f"{int(min(response_times))} detik",
             'max': f"{int(max(response_times))} detik",
             'total_samples': len(response_times)
@@ -161,7 +178,9 @@ def calculate_avg_response_time(df):
     
     return {
         'avg': "N/A",
+        'avg_raw': "N/A",
         'median': "N/A",
+        'median_raw': "N/A",
         'min': "N/A",
         'max': "N/A",
         'total_samples': 0
@@ -169,24 +188,31 @@ def calculate_avg_response_time(df):
 
 response_stats = calculate_avg_response_time(df)
 
-col1, col2, col3, col4 = st.columns(4)
+st.subheader("📊 Statistik Pesan")
+col1, col2 = st.columns(2)
+with col1:
+    col1.metric("Total Pesan", len(df))
+    col1.metric("Pesan Diterima", len(df[df['status'] == "receive"]))
+    col1.metric("Pesan Dikirim", len(df[df['status'] == "send"]))
+    col1.metric("Jumlah User Unik", df['no'].nunique())
 
-# Basic metrics
-col1.metric("Total Pesan", len(df))
-col1.metric("Pesan Diterima", len(df[df['status'] == "receive"]))
-col1.metric("Pesan Dikirim", len(df[df['status'] == "send"]))
+st.subheader("⏱️ Analisis Waktu Respon")
+st.markdown("*Waktu respon dihitung dalam jam kerja (08:00-20:00)*")
 
-# User metrics
-col2.metric("Jumlah User Unik", df['no'].nunique())
-col2.metric("Jumlah Sampel Response", response_stats['total_samples'])
+col1, col2, col3 = st.columns(3)
 
-# Response time averages
-col3.metric("Rata-rata Waktu Respon", response_stats['avg'])
-col3.metric("Median Waktu Respon", response_stats['median'])
+with col1:
+    st.metric("Jumlah Sampel Response", response_stats['total_samples'])
+    st.metric("Response Tercepat", response_stats['min'])
+    st.metric("Response Terlama", response_stats['max'])
 
-# Response time extremes
-col4.metric("Response Tercepat", response_stats['min'])
-col4.metric("Response Terlama", response_stats['max'])
+with col2:
+    st.metric("Rata-rata Waktu Respon (Jam Kerja)", response_stats['avg'])
+    st.metric("Rata-rata Waktu Respon (24 Jam)", response_stats['avg_raw'])
+
+with col3:
+    st.metric("Median Waktu Respon (Jam Kerja)", response_stats['median'])
+    st.metric("Median Waktu Respon (24 Jam)", response_stats['median_raw'])
 
 # =====================================
 # 🔹 Distribusi Status Pesan
