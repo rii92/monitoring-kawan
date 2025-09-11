@@ -92,11 +92,41 @@ df = df[(df['datetime'].dt.date >= date_range[0]) & (df['datetime'].dt.date <= d
 # 🔹 Statistik Ringkas
 # =====================================
 st.subheader("📊 Statistik Ringkas")
-col1, col2, col3, col4 = st.columns(4)
+
+# Calculate average response time
+def calculate_avg_response_time(df):
+    # Sort by datetime to ensure correct order
+    df_sorted = df.sort_values('datetime')
+    
+    response_times = []
+    last_receive_time = None
+    
+    for _, row in df_sorted.iterrows():
+        if row['status'] == 'receive':
+            last_receive_time = row['datetime']
+        elif row['status'] == 'send' and last_receive_time is not None:
+            # Calculate time difference in seconds
+            response_time = (row['datetime'] - last_receive_time).total_seconds()
+            if response_time > 0 and response_time < 3600:  # Filter out responses longer than 1 hour
+                response_times.append(response_time)
+            last_receive_time = None
+    
+    if response_times:
+        avg_response_time = sum(response_times) / len(response_times)
+        # Convert to minutes and seconds
+        minutes = int(avg_response_time // 60)
+        seconds = int(avg_response_time % 60)
+        return f"{minutes} menit {seconds} detik"
+    return "N/A"
+
+avg_response_time = calculate_avg_response_time(df)
+
+col1, col2, col3, col4, col5 = st.columns(5)
 col1.metric("Total Pesan", len(df))
 col2.metric("Pesan Diterima", len(df[df['status'] == "receive"]))
 col3.metric("Pesan Dikirim", len(df[df['status'] == "send"]))
 col4.metric("Jumlah User Unik", df['no'].nunique())
+col5.metric("Rata-rata Waktu Respon", avg_response_time)
 
 # =====================================
 # 🔹 Distribusi Status Pesan
