@@ -469,6 +469,88 @@ def page_sls():
             st.info("Tidak ada data desa.")
 
     # ─────────────────────────────────────────────
+    # Progress Table View (Grouped by Email PPL)
+    # ─────────────────────────────────────────────
+    st.markdown("---")
+    st.subheader("📊 Progress per PPL")
+
+    progress_cols = [
+        'jumlahSelesaiLapangan', 'jumlahSubmit', 'JumlahApproved', 'JumlahReject',
+        'statusSls', 'Nama_PML', 'Nama_PPL', 'PJKuda', 'emailPPL', 'emailPML'
+    ]
+
+    progress_cols = [c for c in progress_cols if c in filtered.columns]
+
+    col_label_map = {
+        'emailPPL': 'Email PPL',
+        'Nama_PPL': 'Nama PPL',
+        'Nama_PML': 'Nama PML',
+        'PJKuda': 'PJKuda',
+        'emailPML': 'Email PML',
+        'jumlahSelesaiLapangan': 'Selesai Lapangan',
+        'jumlahSubmit': 'Submit',
+        'JumlahApproved': 'Approved',
+        'JumlahReject': 'Reject',
+        'statusSls': 'Status SLS',
+    }
+
+    if 'emailPPL' in progress_cols:
+        default_cols = ['emailPPL', 'Nama_PPL', 'Nama_PML', 'PJKuda',
+                        'jumlahSelesaiLapangan', 'jumlahSubmit', 'JumlahApproved', 'JumlahReject', 'statusSls']
+        default_cols = [c for c in default_cols if c in progress_cols]
+
+        selected_cols = st.multiselect(
+            "Pilih kolom yang ditampilkan:",
+            options=progress_cols,
+            default=default_cols,
+            format_func=lambda c: col_label_map.get(c, c),
+            key="progress_col_selector"
+        )
+
+        group_agg = {
+            'Nama_PPL': 'first',
+            'Nama_PML': 'first',
+            'PJKuda': 'first',
+            'emailPML': 'first',
+            'jumlahSelesaiLapangan': 'sum',
+            'jumlahSubmit': 'sum',
+            'JumlahApproved': 'sum',
+            'JumlahReject': 'sum',
+            'statusSls': lambda x: ', '.join(f"{v} ({c})" for v, c in pd.Series(x).value_counts().items())
+        }
+        group_agg = {k: v for k, v in group_agg.items() if k in filtered.columns}
+
+        progress_df = filtered.groupby('emailPPL').agg(group_agg).reset_index()
+
+        cols_order = ['emailPPL', 'Nama_PPL', 'Nama_PML', 'PJKuda', 'emailPML',
+                      'jumlahSelesaiLapangan', 'jumlahSubmit', 'JumlahApproved', 'JumlahReject', 'statusSls']
+        cols_order = [c for c in cols_order if c in progress_df.columns]
+
+        progress_df = progress_df[cols_order]
+
+        progress_df.columns = [col_label_map.get(c, c) for c in progress_df.columns]
+
+        if selected_cols:
+            selected_labels = [col_label_map.get(c, c) for c in selected_cols]
+            display_progress_df = progress_df[selected_labels]
+        else:
+            display_progress_df = progress_df
+
+        st.dataframe(display_progress_df, use_container_width=True, hide_index=True, height=500)
+
+        st.caption(f"Menampilkan {len(progress_df)} PPL dari {len(df)} total data SLS.")
+
+        csv_progress = display_progress_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Download CSV Progress",
+            data=csv_progress,
+            file_name=f"progress_per_ppl_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv",
+        )
+    else:
+        st.info("Kolom emailPPL tidak tersedia.")
+
+    # ─────────────────────────────────────────────
     # Detailed Data Table
     # ─────────────────────────────────────────────
     st.markdown("---")
