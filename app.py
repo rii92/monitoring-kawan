@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 PAGES = ["🤖 Analisis Chatbot KAWAN", "📋 Monitoring Progress SLS"]
 
 if "page" not in st.session_state:
-    st.session_state.page = PAGES[0]
+    st.session_state.page = PAGES[1]
 
 # =====================================
 # 🔹 PAGE 1: Chatbot Analysis
@@ -597,7 +597,8 @@ def main():
     with st.sidebar:
         st.title("🏠 Menu Utama")
         st.divider()
-        for page in PAGES:
+        VISIBLE_PAGES = [PAGES[1]]  # Hanya tampilkan Monitoring Progress SLS
+        for page in VISIBLE_PAGES:
             btn_type = "primary" if st.session_state.page == page else "secondary"
             if st.button(page, use_container_width=True, type=btn_type):
                 st.session_state.page = page
