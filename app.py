@@ -536,11 +536,51 @@ def page_sls():
         else:
             display_progress_df = progress_df
 
-        st.dataframe(display_progress_df, use_container_width=True, hide_index=True, height=500)
+        # ─── Column Filters (Filter Kolom Bertingkat) ───
+        filtered_display = display_progress_df.copy()
+        col_filters = {}
+        with st.expander("🔍 Filter Kolom Bertingkat", expanded=False):
+            n_fcols = min(4, len(display_progress_df.columns) or 1)
+            cols_list = list(display_progress_df.columns)
+            for row_start in range(0, len(cols_list), n_fcols):
+                row_cols = cols_list[row_start:row_start + n_fcols]
+                cols_ui = st.columns(n_fcols)
+                for j, col in enumerate(row_cols):
+                    if j >= len(cols_ui):
+                        break
+                    with cols_ui[j]:
+                        col_data = display_progress_df[col]
+                        if pd.api.types.is_numeric_dtype(col_data):
+                            lo = int(col_data.min()) if pd.notna(col_data.min()) else 0
+                            hi = int(col_data.max()) if pd.notna(col_data.max()) else 0
+                            min_col, max_col = st.columns(2)
+                            with min_col:
+                                lo_val = st.number_input(f"Min {col}", value=lo, key=f"ppl_min_{col}")
+                            with max_col:
+                                hi_val = st.number_input(f"Max {col}", value=hi, key=f"ppl_max_{col}")
+                            col_filters[col] = (lo_val, hi_val)
+                        else:
+                            col_filters[col] = st.text_input(
+                                f"Cari {col}", key=f"ppl_filter_{col}"
+                            )
 
-        st.caption(f"Menampilkan {len(progress_df)} PPL dari {len(df)} total data SLS.")
+        for col, val in col_filters.items():
+            if val is None or (isinstance(val, str) and not val.strip()):
+                continue
+            if isinstance(val, tuple):
+                filtered_display = filtered_display[
+                    (filtered_display[col] >= val[0]) & (filtered_display[col] <= val[1])
+                ]
+            elif isinstance(val, str):
+                filtered_display = filtered_display[
+                    filtered_display[col].astype(str).str.contains(val, case=False, na=False)
+                ]
 
-        csv_progress = display_progress_df.to_csv(index=False).encode('utf-8')
+        st.dataframe(filtered_display, use_container_width=True, hide_index=True, height=500)
+
+        st.caption(f"Menampilkan {len(filtered_display)} PPL (dari {len(progress_df)} setelah filter sidebar) dari {len(df)} total data SLS.")
+
+        csv_progress = filtered_display.to_csv(index=False).encode('utf-8')
         st.download_button(
             label="📥 Download CSV Progress",
             data=csv_progress,
